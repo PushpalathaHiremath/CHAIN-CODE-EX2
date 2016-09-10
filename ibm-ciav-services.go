@@ -1,1133 +1,182 @@
-/*
-Copyright IBM Corp. 2016 All Rights Reserved.
-Licensed under the IBM India Pvt Ltd, Version 1.0 (the "License");
-*/
-
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"encoding/json"
+	
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-//	"github.com/op/go-logging"
-	"bytes"
-	"strings"
-	"strconv"
+	
 )
 
-// var myLogger = logging.MustGetLogger("customer_address_details")
-var dummyValue = "99999"
-type ServicesChaincode struct {
-}
 
-type Identification struct {
-	CustomerId  	string
-	IdentityNumber  string
-	PoiType 				 string
-	PoiDoc          string
-	PoiExpiryDate  string
-	Source		   		 string
-}
-
-type PersonalDetails struct {
-	CustomerId  	   string
-	FirstName    	 string
-	LastName 			 string
-	Sex   					 string
-	EmailId         string
-	Dob              string
-	PhoneNumber     string
-	Occupation       string
-	AnnualIncome    string
-	IncomeSource    string
-	Source		   		 string
-}
-
-type Kyc struct {
-	CustomerId  	   string
-	KycStatus       string
-	LastUpdated     string
-	Source		   		 string
-}
-
-type Address struct {
-	CustomerId  	   string
-	AddressId       string
-	AddressType     string
-	DoorNumber      string
-	Street           string
-	Locality         string
-	City 						 string
-	State 					 string
-	Pincode          string
-	PoaType         string
-	PoaDoc          string
-	PoaExpiryDate  string
-	Source		   		 string
-}
-
-type Customer struct {
-		Identification    []Identification
-		PersonalDetails   PersonalDetails
-		Kyc								Kyc
-		Address					  []Address
-}
-
-/*
-   Deploy KYC data model
-*/
-func (t *ServicesChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	CreateIdentificationTable(stub, args)
-	CreateCustomerTable(stub, args)
-	CreateKycTable(stub, args)
-	CreateAddressTable(stub, args)
-	return nil, nil
-}
-
-/*
-  Add Customer record
-*/
-func (t *ServicesChaincode) addCIAV(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 1")
-	}
-
-	var Cust Customer
-	err := json.Unmarshal([]byte(string(args[0])), &Cust)
-	if err != nil {
-		fmt.Println("Error is :",err)
-	}
-for i := range Cust.Identification {
-	AddIdentification(stub, []string{Cust.Identification[i].CustomerId, Cust.Identification[i].IdentityNumber, Cust.Identification[i].PoiType, Cust.Identification[i].PoiDoc,
-		Cust.Identification[i].PoiExpiryDate, Cust.Identification[i].Source})
-}
-	AddCustomer(stub, []string{Cust.PersonalDetails.CustomerId, Cust.PersonalDetails.FirstName, Cust.PersonalDetails.LastName,
-		Cust.PersonalDetails.Sex, Cust.PersonalDetails.EmailId, Cust.PersonalDetails.Dob, Cust.PersonalDetails.PhoneNumber, Cust.PersonalDetails.Occupation,
-		Cust.PersonalDetails.AnnualIncome, Cust.PersonalDetails.IncomeSource, Cust.PersonalDetails.Source})
-	AddKYC(stub, []string{Cust.Kyc.CustomerId, Cust.Kyc.KycStatus, Cust.Kyc.LastUpdated, Cust.Kyc.Source})
-for i := range Cust.Address {
-	AddAddress(stub, []string{Cust.Address[i].CustomerId, Cust.Address[i].AddressId, Cust.Address[i].AddressType,
-		Cust.Address[i].DoorNumber, Cust.Address[i].Street, Cust.Address[i].Locality, Cust.Address[i].City, Cust.Address[i].State,
-		Cust.Address[i].Pincode, Cust.Address[i].PoaType, Cust.Address[i].PoaDoc, Cust.Address[i].PoaExpiryDate, Cust.Address[i].Source})
+type  SimpleChaincode struct {
 }
 
 
-	// Common
-	// customer_id := args[0]
-	// source := args[1]
-	//
-	// // Identification
-	// identity_number := args[2]
-	// poi_type := args[3]
-	// poi_doc := args[4]
-	// poi_expiry_date := args[5]
-	//
-	// identity_number2 := args[28]
-	// poi_type2 := args[29]
-	// poi_doc2 := args[30]
-	// poi_expiry_date2 := args[31]
-	//
-	// // Customer personal details
-	// first_name := args[6]
-	// last_name := args[7]
-	// sex := args[8]
-	// email_id := args[9]
-	// dob := args[10]
-	// phone_number := args[11]
-	// occupation := args[12]
-	// annual_income := args[13]
-	// income_source := args[14]
-	//
-	// //kyc
-	// kyc_status := args[15]
-	// last_updated := args[16]
-	//
-	// // Address
-	// address_id := args[17]
-	// address_type := args[18]
-	// door_number := args[19]
-	// street := args[20]
-  // locality := args[21]
-	// city :=args[22]
-	// state := args[23]
-	// pincode := args[24]
-	// poa_type := args[25]
-	// poa_doc := args[26]
-	// poa_expiry_date := args[27]
-	//
-	// address_id2 := args[32]
-	// address_type2 := args[33]
-	// door_number2 := args[34]
-	// street2 := args[35]
-	// locality2 := args[36]
-	// city2 :=args[37]
-	// state2 := args[38]
-	// pincode2 := args[39]
-	// poa_type2 := args[40]
-	// poa_doc2 := args[41]
-	// poa_expiry_date2 := args[42]
-
-	// AddIdentification(stub, []string{customer_id, identity_number, poi_type, poi_doc, poi_expiry_date, source})
-	// AddCustomer(stub, []string{customer_id, first_name, last_name, sex, email_id, dob, phone_number, occupation, annual_income, income_source, source})
-	// AddKYC(stub, []string{customer_id, kyc_status, last_updated, source})
-	// AddAddress(stub, []string{customer_id, address_id, address_type, door_number, street, locality, city, state, pincode, poa_type, poa_doc, poa_expiry_date, source})
-	//
-	// if args[28] != "" {
-	// 	AddIdentification(stub, []string{customer_id, identity_number2, poi_type2, poi_doc2, poi_expiry_date2, source})
-	// }
-	// if args[32] != "" {
-	// 	AddAddress(stub, []string{customer_id, address_id2, address_type2, door_number2, street2, locality2, city2, state2, pincode2, poa_type2, poa_doc2, poa_expiry_date2, source})
-	// }
-	return nil, nil
-}
-
-/*
- Update customer record
-*/
-func (t *ServicesChaincode) updateCIAV(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-// 	if len(args) != 1 {
-// 		return nil, errors.New("Incorrect number of arguments. Expecting 1")
-// 	}
-//
-// 	var Cust Customer
-// 	err := json.Unmarshal([]byte(string(args[0])), &Cust)
-// 	if err != nil {
-// 		fmt.Println("Error is :",err)
-// 	}
-// for i := range Cust.Identification {
-// 	UpdateIdentification(stub, []string{Cust.Identification[i].CustomerId, Cust.Identification[i].IdentityNumber, Cust.Identification[i].PoiType, Cust.Identification[i].PoiDoc,
-// 		Cust.Identification[i].PoiExpiryDate, Cust.Identification[i].Source})
-// }
-// 	UpdateCustomer(stub, []string{Cust.PersonalDetails.CustomerId, Cust.PersonalDetails.FirstName, Cust.PersonalDetails.LastName,
-// 		Cust.PersonalDetails.Sex, Cust.PersonalDetails.EmailId, Cust.PersonalDetails.Dob, Cust.PersonalDetails.PhoneNumber, Cust.PersonalDetails.Occupation,
-// 		Cust.PersonalDetails.AnnualIncome, Cust.PersonalDetails.IncomeSource, Cust.PersonalDetails.Source})
-// 	UpdateKYC(stub, []string{Cust.Kyc.CustomerId, Cust.Kyc.KycStatus, Cust.Kyc.LastUpdated, Cust.Kyc.Source})
-// for i := range Cust.Address {
-// 	UpdateAddress(stub, []string{Cust.Address[i].CustomerId, Cust.Address[i].AddressId, Cust.Address[i].AddressType,
-// 		Cust.Address[i].DoorNumber, Cust.Address[i].Street, Cust.Address[i].Locality, Cust.Address[i].City, Cust.Address[i].State,
-// 		Cust.Address[i].Pincode, Cust.Address[i].PoaType, Cust.Address[i].PoaDoc, Cust.Address[i].PoaExpiryDate, Cust.Address[i].Source})
-// }
-//
-
-
-	if len(args) != 43 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 43")
-	}
-	// Common
-	customer_id := args[0]
-	source := args[1]
-
-	// Identification
-	identity_number := args[2]
-	poi_type := args[3]
-	poi_doc := args[4]
-	poi_expiry_date := args[5]
-
-	identity_number2 := args[28]
-	poi_type2 := args[29]
-	poi_doc2 := args[30]
-	poi_expiry_date2 := args[31]
-
-	// Customer personal details
-	first_name := args[6]
-	last_name := args[7]
-	sex := args[8]
-	email_id := args[9]
-	dob := args[10]
-	phone_number := args[11]
-	occupation := args[12]
-	annual_income := args[13]
-	income_source := args[14]
-
-	//kyc
-	kyc_status := args[15]
-	last_updated := args[16]
-
-	// Address
-	address_id := args[17]
-	address_type := args[18]
-	door_number := args[19]
-	street := args[20]
-	locality := args[21]
-	city := args[22]
-	state := args[23]
-	pincode := args[24]
-	poa_type := args[25]
-	poa_doc := args[26]
-	poa_expiry_date := args[27]
-
-	address_id2 := args[32]
-	address_type2 := args[33]
-	door_number2 := args[34]
-	street2 := args[35]
-	locality2 := args[36]
-	city2 :=args[37]
-	state2 := args[38]
-	pincode2 := args[39]
-	poa_type2 := args[40]
-	poa_doc2 := args[41]
-	poa_expiry_date2 := args[42]
-
-	UpdateIdentification(stub, []string{customer_id, identity_number, poi_type, poi_doc, poi_expiry_date, source})
-	UpdateCustomer(stub, []string{customer_id, first_name, last_name, sex, email_id, dob, phone_number, occupation, annual_income, income_source, source})
-	UpdateKYC(stub, []string{customer_id, kyc_status, last_updated, source})
-	UpdateAddress(stub, []string{customer_id, address_id, address_type, door_number, street, locality, city, state, pincode, poa_type, poa_doc, poa_expiry_date, source})
-
-	if args[28] != "" {
-		UpdateIdentification(stub, []string{customer_id, identity_number2, poi_type2, poi_doc2, poi_expiry_date2, source})
-	}
-	if args[32] != "" {
-		UpdateAddress(stub, []string{customer_id, address_id2, address_type2, door_number2, street2, locality2, city2, state2, pincode2, poa_type2, poa_doc2, poa_expiry_date2, source})
-	}
-	return nil, nil
-}
-
-/*
-   Invoke : addCIAV and updateCIAV
-*/
-func (t *ServicesChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-
-	if function == "addCIAV" {
-		// add customer
-		return t.addCIAV(stub, args)
-	} else {
-		// update customer
-		return t.updateCIAV(stub, args)
-	}
-
-	return nil, errors.New("Received unknown function invocation")
-}
-
-/*
- 		Get Customer record by customer id or PAN number
-*/
-func (t *ServicesChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
-	if function == "getCIAV" {
-		return t.getCIAV(stub, args)
-	}else if function == "getKYCStats" {
-		return t.GetKYCStats(stub)
-	}
-	return nil, errors.New("Received unknown function invocation")
-}
-
-func (t *ServicesChaincode) getCIAV(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	var jsonResp string
-	var customerIds []string
-	var err error
-
-	var identificationStr string
-	var customerStr string
-	var kycStr string
-	var addressStr string
-	if args[0] == "PAN" {
-		customerIds, err = GetCustomerID(stub, args[1])
-		// jsonResp = "["
-		for i := range customerIds {
-			customerId := customerIds[i]
-			identificationStr, err =GetIdentification(stub, customerId)
-			customerStr, err = GetCustomer(stub, customerId)
-			kycStr, err = GetKYC(stub, customerId)
-			addressStr, err = GetAddress(stub, customerId)
-
-			if i != 0 {
-				jsonResp = jsonResp + ","
-			}
-			jsonResp = jsonResp + "{\"Identification\":" + identificationStr +
-				",\"PersonalDetails\":" + customerStr +
-				",\"KYC\":" + kycStr +
-				",\"address\":" + addressStr + "}"
-		}
-			// jsonResp = jsonResp + "]"
-	} else if args[0] == "CUST_ID" {
-		customerId := args[1]
-		identificationStr, err = GetIdentification(stub, customerId)
-		customerStr, err = GetCustomer(stub, customerId)
-		kycStr, err = GetKYC(stub, customerId)
-		addressStr, err = GetAddress(stub, customerId)
-
-		jsonResp = "{\"Identification\":" + identificationStr +
-			",\"PersonalDetails\":" + customerStr +
-			",\"KYC\":" + kycStr +
-			",\"address\":" + addressStr + "}"
-	} else {
-		return nil, errors.New("Invalid arguments. Please query by CUST_ID or PAN")
-	}
-
-	bytes, err := json.Marshal(jsonResp)
-	if err != nil {
-		return nil, errors.New("Error converting kyc record")
-	}
-	return bytes, nil
+type Patient struct {
+	
+	Id               string 
+	Name            string 
+	Address           string
+	Phone			string
+	Email			string 
 }
 
 
-/*
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-																				Address
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-*/
 
-/*
-	Create address table
-*/
-func CreateAddressTable(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-//	myLogger.Debug("Creating Address Table ...")
-	if len(args) != 0 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 0")
-	}
+func (t *SimpleChaincode) Init(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+    if len(args) != 1 {
+        return nil, errors.New("Incorrect number of arguments. Expecting 1")
+    }
 
-	err := stub.CreateTable("Address", []*shim.ColumnDefinition{
-    &shim.ColumnDefinition{Name: "customer_id", Type: shim.ColumnDefinition_STRING, Key: true},
-		&shim.ColumnDefinition{Name: "address_id", Type: shim.ColumnDefinition_STRING, Key: true},
-    &shim.ColumnDefinition{Name: "address_type", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "door_tumber", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "street", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "locality", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "city", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "state", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "pincode", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "poa_type", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "poa_doc", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "expiry_date", Type: shim.ColumnDefinition_STRING, Key: false},
-    &shim.ColumnDefinition{Name: "source", Type: shim.ColumnDefinition_STRING, Key: false},
-	})
-	if err != nil {
-		return nil, errors.New("Failed creating Address table.")
-	}
+    err := stub.PutState("hello_world", []byte(args[0]))
+    if err != nil {
+        return nil, err
+    }
 
-	// myLogger.Debug("Address table created Successfully... !!! ")
-	return nil, nil
+    return nil, nil
 }
 
-/*
-	Add Address record
-*/
-func AddAddress(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Adding Address record ...")
+func (t *SimpleChaincode) Invoke(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+    fmt.Println("invoke is running " + function)
 
-	if len(args) != 13 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 13")
-	}
-    customerId := args[0]
-    addressId := args[1]
-  	addressType := args[2]
-  	doorNumber := args[3]
-  	street := args[4]
-  	locality := args[5]
-		city := args[6]
-  	state := args[7]
-  	pincode := args[8]
-  	poaType := args[9]
-  	poaDoc := args[10]
-  	expiryDate := args[11]
-  	source := args[12]
+    // Handle different functions
+    if function == "init" {
+        return t.Init(stub, "init", args)
+    } else if function == "write" {
+        return t.write(stub, args)
+    } else if function == "create_patient" {
+    	return t.create_patient(stub,args)
+    }
+    fmt.Println("invoke did not find func: " + function)
 
-	ok, err := stub.InsertRow("Address", shim.Row{
-		Columns: []*shim.Column{
-      &shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			&shim.Column{Value: &shim.Column_String_{String_: addressId}},
-			&shim.Column{Value: &shim.Column_String_{String_: addressType}},
-			&shim.Column{Value: &shim.Column_String_{String_: doorNumber}},
-			&shim.Column{Value: &shim.Column_String_{String_: street}},
-			&shim.Column{Value: &shim.Column_String_{String_: locality}},
-			&shim.Column{Value: &shim.Column_String_{String_: city}},
-			&shim.Column{Value: &shim.Column_String_{String_: state}},
-			&shim.Column{Value: &shim.Column_String_{String_: pincode}},
-			&shim.Column{Value: &shim.Column_String_{String_: poaType}},
-			&shim.Column{Value: &shim.Column_String_{String_: poaDoc}},
-      &shim.Column{Value: &shim.Column_String_{String_: expiryDate}},
-      &shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
-
-	if !ok && err == nil {
-		return nil, errors.New("Error in adding address record.")
-	}
-	// myLogger.Debug("Congratulations !!! Successfully added",)
-	return nil, err
+    return nil, errors.New("Received unknown function invocation")
 }
 
-func UpdateAddress(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Updating address record ...")
+func (t *SimpleChaincode) write(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+    var name, value string
+    var err error
+    fmt.Println("running write()")
 
-	if len(args) != 13 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 11")
-	}
+    if len(args) != 2 {
+        return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the variable and value to set")
+    }
 
-  customerId := args[0]
-  addressId := args[1]
-  addressType := args[2]
-  doorNumber := args[3]
-  street := args[4]
-  locality := args[5]
-  city := args[6]
-  state := args[7]
-  pincode := args[8]
-  poaType := args[9]
-  poaDoc := args[10]
-  expiryDate := args[11]
-  source := args[12]
-
-	ok, err := stub.ReplaceRow("Address", shim.Row{
-		Columns: []*shim.Column{
-      &shim.Column{Value: &shim.Column_String_{String_: customerId}},
-      &shim.Column{Value: &shim.Column_String_{String_: addressId}},
-      &shim.Column{Value: &shim.Column_String_{String_: addressType}},
-      &shim.Column{Value: &shim.Column_String_{String_: doorNumber}},
-      &shim.Column{Value: &shim.Column_String_{String_: street}},
-      &shim.Column{Value: &shim.Column_String_{String_: locality}},
-			&shim.Column{Value: &shim.Column_String_{String_: city}},
-      &shim.Column{Value: &shim.Column_String_{String_: state}},
-      &shim.Column{Value: &shim.Column_String_{String_: pincode}},
-      &shim.Column{Value: &shim.Column_String_{String_: poaType}},
-      &shim.Column{Value: &shim.Column_String_{String_: poaDoc}},
-      &shim.Column{Value: &shim.Column_String_{String_: expiryDate}},
-      &shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
-
-	if !ok && err == nil {
-		return nil, errors.New("Error in updated customer address record.")
-	}
-	// myLogger.Debug("Congratulations !!! Successfully updated ",)
-	return nil, err
-}
-
-/*
- Get address record
-*/
-func GetAddress(stub *shim.ChaincodeStub, customerId string) (string, error) {
-	var err error
-	// myLogger.Debugf("Getting address record for customer : [%s]", string(customerId))
-
-	var columns []shim.Column
-	col1 := shim.Column{Value: &shim.Column_String_{String_: customerId}}
-	columns = append(columns, col1)
-	rows, err := GetAllRows(stub, "Address", columns)
-	if err != nil {
-		// myLogger.Debugf("Failed retriving Address details [%s]: [%s]", string(customerId), err)
-		return "", fmt.Errorf("Failed retriving Address details [%s]: [%s]", string(customerId), err)
-	}
-
-	var jsonRespBuffer bytes.Buffer
-	jsonRespBuffer.WriteString("[")
-	for i := range rows {
-		row := rows[i]
-		// myLogger.Debugf("Identification rows [%s], is : [%s]", i, row)
-		fmt.Println(row)
-		if i != 0 {
-			jsonRespBuffer.WriteString(",")
-		}
-		jsonRespBuffer.WriteString("{\"customerId\":\"" + row.Columns[0].GetString_() + "\"" +
-			",\"addressId\":\"" + row.Columns[1].GetString_() + "\"" +
-			",\"addressType\":\"" + row.Columns[2].GetString_() + "\"" +
-			",\"doorNumber\":\"" + row.Columns[3].GetString_() + "\"" +
-			",\"street\":\"" + row.Columns[4].GetString_() + "\"" +
-			",\"locality\":\"" + row.Columns[5].GetString_() + "\"" +
-			",\"city\":\"" + row.Columns[6].GetString_() + "\"" +
-			",\"state\":\"" + row.Columns[7].GetString_() + "\"" +
-			",\"pincode\":\"" + row.Columns[8].GetString_() + "\"" +
-			",\"poaType\":\"" + row.Columns[9].GetString_() + "\"" +
-			",\"poaDoc\":\"" + row.Columns[10].GetString_() + "\"" +
-	    ",\"expiryDate\":\"" + row.Columns[11].GetString_() + "\"" +
-	    ",\"source\":\"" + row.Columns[12].GetString_() + "\"}")
-	}
-	jsonRespBuffer.WriteString("]")
-
-	return jsonRespBuffer.String(), nil
-}
-
-/*
-	Get all rows corresponding to the partial keys given
-*/
-func GetAllRows(stub *shim.ChaincodeStub, tableName string, columns []shim.Column) ([]shim.Row, error) {
-	rowChannel, err := stub.GetRows(tableName, columns)
-	if err != nil {
-		// myLogger.Debugf("Failed retriving address details for : [%s]", err)
-		return nil, fmt.Errorf("Failed retriving address details : [%s]", err)
-	}
-	var rows []shim.Row
-	for {
-		select {
-		case temprow, ok := <-rowChannel:
-			if !ok {
-				rowChannel = nil
-			} else {
-				// myLogger.Debugf("Fetching row : [%s]", temprow.Columns[0].GetString_())
-				rows = append(rows, temprow)
-			}
-		}
-		if rowChannel == nil {
-			break
-		}
-	}
-	return rows, nil
-}
-
-/*
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-																				Customer
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-*/
-
-/*
-	Create customer table
-*/
-func CreateCustomerTable(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Creating Customer table...")
-	if len(args) != 0 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 0")
-	}
-
-	// Create Customer table
-	err := stub.CreateTable("Customer", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{Name: "customer_id", Type: shim.ColumnDefinition_STRING, Key: true},
-		&shim.ColumnDefinition{Name: "first_name", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "last_name", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "sex", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "email_id", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "dob", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "phone_number", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "occupation", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "annual_income", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "income_source", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "source", Type: shim.ColumnDefinition_STRING, Key: false},
-	})
-	if err != nil {
-		return nil, errors.New("Failed to create Customer table.")
-	}
-	// myLogger.Debug("Customer table created Successfully... !!! ")
-	return nil, nil
-}
-
-/*
-	Add customer record
-*/
-func AddCustomer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Deb ug("Adding Customer record ...")
-
-	if len(args) != 11 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 11")
-	}
-	customerId := args[0]
-	firstName := args[1]
-	lastName := args[2]
-	sex := args[3]
-	emailId := args[4]
-	dob := args[5]
-	phoneNumber := args[6]
-	occupation := args[7]
-	annualIncome := args[8]
-	incomeSource := args[9]
-	source := args[10]
-
-	// Add customer entry to Customer table
-	// myLogger.Debugf("Adding Customer [%s] ", firstName)
-
-	ok, err := stub.InsertRow("Customer", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			&shim.Column{Value: &shim.Column_String_{String_: firstName}},
-			&shim.Column{Value: &shim.Column_String_{String_: lastName}},
-			&shim.Column{Value: &shim.Column_String_{String_: sex}},
-			&shim.Column{Value: &shim.Column_String_{String_: emailId}},
-			&shim.Column{Value: &shim.Column_String_{String_: dob}},
-			&shim.Column{Value: &shim.Column_String_{String_: phoneNumber}},
-			&shim.Column{Value: &shim.Column_String_{String_: occupation}},
-			&shim.Column{Value: &shim.Column_String_{String_: annualIncome}},
-			&shim.Column{Value: &shim.Column_String_{String_: incomeSource}},
-			&shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
-
-	if !ok && err == nil {
-		return nil, errors.New("Error in adding customer record.")
-	}
-	// myLogger.Debug("Congratulations !!! Successfully added [%s] ", firstName)
-	return nil, err
-}
-
-/*
-	Update customer record
-*/
-func UpdateCustomer(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Updating Customer record ...")
-
-	if len(args) != 11 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 11")
-	}
-
-	customerId := args[0]
-	firstName := args[1]
-	lastName := args[2]
-	sex := args[3]
-	emailId := args[4]
-	dob := args[5]
-	phoneNumber := args[6]
-	occupation := args[7]
-	annualIncome := args[8]
-	incomeSource := args[9]
-	source := args[10]
-
-	// Update customer entry to Customer table
-	// myLogger.Debugf("Updating Customer [%s] ", firstName)
-
-	ok, err := stub.ReplaceRow("Customer", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			&shim.Column{Value: &shim.Column_String_{String_: firstName}},
-			&shim.Column{Value: &shim.Column_String_{String_: lastName}},
-			&shim.Column{Value: &shim.Column_String_{String_: sex}},
-			&shim.Column{Value: &shim.Column_String_{String_: emailId}},
-			&shim.Column{Value: &shim.Column_String_{String_: dob}},
-			&shim.Column{Value: &shim.Column_String_{String_: phoneNumber}},
-			&shim.Column{Value: &shim.Column_String_{String_: occupation}},
-			&shim.Column{Value: &shim.Column_String_{String_: annualIncome}},
-			&shim.Column{Value: &shim.Column_String_{String_: incomeSource}},
-			&shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
-
-	if !ok && err == nil {
-		return nil, errors.New("Error in updated customer record.")
-	}
-	// myLogger.Debug("Congratulations !!! Successfully updated [%s] ", firstName)
-	return nil, err
-}
-
-/*
- Get customer record
-*/
-func GetCustomer(stub *shim.ChaincodeStub, customerId string) (string, error) {
-	var err error
-	// myLogger.Debugf("Get personal details record for customer : [%s]", string(customerId))
-
-	var columns []shim.Column
-	col1 := shim.Column{Value: &shim.Column_String_{String_: customerId}}
-	columns = append(columns, col1)
-
-	row, err := stub.GetRow("Customer", columns)
-	if err != nil {
-		// myLogger.Debugf("Failed retriving Customer details [%s]: [%s]", string(customerId), err)
-		return "", fmt.Errorf("Failed retriving Customer details [%s]: [%s]", string(customerId), err)
-	}
-
-	jsonResp := "{\"customerId\":\"" + row.Columns[0].GetString_() + "\"" +
-		",\"firstName\":\"" + row.Columns[1].GetString_() + "\"" +
-		",\"lastName\":\"" + row.Columns[2].GetString_() + "\"" +
-		",\"sex\":\"" + row.Columns[3].GetString_() + "\"" +
-		",\"emailId\":\"" + row.Columns[4].GetString_() + "\"" +
-		",\"dob\":\"" + row.Columns[5].GetString_() + "\"" +
-		",\"phoneNumber\":\"" + row.Columns[6].GetString_() + "\"" +
-		",\"occupation\":\"" + row.Columns[7].GetString_() + "\"" +
-		",\"annualIncome\":\"" + row.Columns[8].GetString_() + "\"" +
-		",\"incomeSource\":\"" + row.Columns[9].GetString_() + "\"" +
-		",\"source\":\"" + row.Columns[10].GetString_() + "\"}"
-	return jsonResp, nil
+    name = args[0]                            //rename for fun
+    value = args[1]
+    err = stub.PutState(name, []byte(value))  //write the variable into the chaincode state
+    if err != nil {
+        return nil, err
+    }
+    return nil, nil
 }
 
 
-/*
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-																				identification
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-*/
+func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args []string) ([]byte, error) {
+    fmt.Println("query is running " + function)
 
-/*
- Create Identification table
-*/
-func CreateIdentificationTable(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Init Identification Chaincode...")
-	if len(args) != 0 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 0")
-	}
+    // Handle different functions
+    if function == "read" {                            //read a variable
+        return t.read(stub, args)
+    }else if function == "retrieve_patient" {
+    	p,err := t.retrieve_patient(stub,args)
+    	
+    	if err != nil { fmt.Printf("QUERY: Error retrieving Id: %s", err); return nil, errors.New("QUERY: Error retrieving id "+err.Error()) }
+    	
+    	fmt.Println("The Patient found"+p.Name)
+    	 bytes, err := json.Marshal(p)
+    	return bytes, err
+    	
+    }
+    fmt.Println("query did not find func: " + function)
 
-	// Create Identification table
-	err := stub.CreateTable("Identification", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{Name: "customer_id", Type: shim.ColumnDefinition_STRING, Key: true},
-		&shim.ColumnDefinition{Name: "identity_number", Type: shim.ColumnDefinition_STRING, Key: true},
-		&shim.ColumnDefinition{Name: "poi_type", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "poi_doc", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "expiry_date", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "source", Type: shim.ColumnDefinition_STRING, Key: false},
-	})
-	// Create identification relation table
-	err = stub.CreateTable("IDRelation", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{Name: "identity_number", Type: shim.ColumnDefinition_STRING, Key: true},
-		&shim.ColumnDefinition{Name: "customer_id", Type: shim.ColumnDefinition_STRING, Key: false},
-	})
-
-	if err != nil {
-		return nil, errors.New("Failed creating Identification table.")
-	}
-	// myLogger.Debug("Identification table initialization done Successfully... !!! ")
-	return nil, nil
+    return nil, errors.New("Received unknown function query")
 }
 
-/*
-	add Identification record
-*/
-func AddIdentification(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Add Identification record ...")
-	if len(args) != 6 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 6")
-	}
 
-	customerId := args[0]
-	identityNumber := args[1]
-	poiType := args[2]
-	poiDoc := args[3]
-	expiryDate := args[4]
-	source := args[5]
+func (t *SimpleChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+    var name, jsonResp string
+    var err error
 
-	// myLogger.Debugf("Adding identity doc : [%s] ", poiType)
+    if len(args) != 1 {
+        return nil, errors.New("Incorrect number of arguments. Expecting name of the var to query")
+    }
 
-	ok, err := stub.InsertRow("Identification", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			&shim.Column{Value: &shim.Column_String_{String_: identityNumber}},
-			&shim.Column{Value: &shim.Column_String_{String_: poiType}},
-			&shim.Column{Value: &shim.Column_String_{String_: poiDoc}},
-			&shim.Column{Value: &shim.Column_String_{String_: expiryDate}},
-			&shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
+    name = args[0]
+    valAsbytes, err := stub.GetState(name)
+    if err != nil {
+        jsonResp = "{\"Error\":\"Failed to get state for " + name + "\"}"
+        return nil, errors.New(jsonResp)
+    }
 
-	// update identification relation
-	_, err = updateIDRelation(stub, identityNumber, customerId, "add")
-	if !ok && err == nil {
-		return nil, errors.New("Error in adding Identification record.")
-	}
-
-	// myLogger.Debug("Congratulations !!! Successfully added, [%s]", res)
-	return nil, err
+    return valAsbytes, nil
 }
 
-/*
- Update Identification record
-*/
-func UpdateIdentification(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Update Identification record ...")
-
-	if len(args) != 6 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 6")
-	}
-
-	customerId := args[0]
-	identityNumber := args[1]
-	poiType := args[2]
-	poiDoc := args[3]
-	expiryDate := args[4]
-	source := args[5]
-
-	// myLogger.Debugf("Updating identity : [%s] ", poiType)
-
-	ok, err := stub.ReplaceRow("Identification", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			&shim.Column{Value: &shim.Column_String_{String_: identityNumber}},
-			&shim.Column{Value: &shim.Column_String_{String_: poiType}},
-			&shim.Column{Value: &shim.Column_String_{String_: poiDoc}},
-			&shim.Column{Value: &shim.Column_String_{String_: expiryDate}},
-			&shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
-
-	_, err = updateIDRelation(stub, identityNumber, customerId, "update")
-	ok, err = stub.ReplaceRow("IDRelation", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: identityNumber}},
-			&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-		},
-	})
-
-	if !ok && err == nil {
-		return nil, errors.New("Error in updating Identification record.")
-	}
-	// myLogger.Debug("Congratulations !!! Successfully updated [%s]", res)
-	return nil, err
+func (t *SimpleChaincode) create_patient(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
+   
+   var err error
+   
+   var p Patient
+   
+   id :=  "\"Id\":\""+args[0]+"\", "
+   name := "\"Name\":\""+args[1]+"\", "
+   address := "\"Address\":\""+args[2]+"\", "
+   phone := "\"Phone\":\""+args[3]+"\", "
+   email :=  "\"Email\":\""+args[4]+"\""
+   
+   json_string :="{"+id+name+address+phone+email+"}"
+   
+   err = json.Unmarshal([]byte(json_string), &p)
+   
+   if err != nil { return nil, errors.New("Invalid JSON object") }
+   
+   
+	 _, err  = t.save_changes(stub, p)
+	  
+   if err != nil {
+        return nil, err
+    }
+   
+    return nil, nil
 }
 
-/*
-	Get Identification record
-*/
-func GetIdentification(stub *shim.ChaincodeStub, customerId string) (string, error) {
-	var err error
-	// myLogger.Debugf("Get identification record for customer : [%s]", string(customerId))
 
-	var columns []shim.Column
-	col1 := shim.Column{Value: &shim.Column_String_{String_: customerId}}
-	columns = append(columns, col1)
-	rows, err := GetAllRows(stub, "Identification", columns)
-	if err != nil {
-		// myLogger.Debugf("Failed retriving Identification details [%s]: [%s]", string(customerId), err)
-		return "", fmt.Errorf("Failed retriving Identification details [%s]: [%s]", string(customerId), err)
-	}
 
-	var jsonRespBuffer bytes.Buffer
-	jsonRespBuffer.WriteString("[")
-	for i := range rows {
-		row := rows[i]
-		// myLogger.Debugf("Identification rows [%s], is : [%s]", i, row)
-		fmt.Println(row)
-		if i != 0 {
-			jsonRespBuffer.WriteString(",")
-		}
-		jsonRespBuffer.WriteString("{\"customerId\":\"" + row.Columns[0].GetString_() + "\"" +
-			",\"identityNumber\":\"" + row.Columns[1].GetString_() + "\"" +
-			",\"poiType\":\"" + row.Columns[2].GetString_() + "\"" +
-			",\"poiDoc\":\"" + row.Columns[3].GetString_() + "\"" +
-			",\"expiryDate\":\"" + row.Columns[4].GetString_() + "\"" +
-			",\"source\":\"" + row.Columns[5].GetString_() + "\"}")
-	}
-	jsonRespBuffer.WriteString("]")
 
-	return jsonRespBuffer.String(), nil
+func (t *SimpleChaincode) retrieve_patient(stub *shim.ChaincodeStub, args []string) (Patient, error) {
+   var p Patient
+   
+   bytes, err := stub.GetState(args[0])	
+   
+    if err != nil {	fmt.Printf("RETRIEVE_Patient: Failed to invoke patient_code: %s", err); return p, errors.New("RETRIEVE_Patient: Error retrieving Patient with id = " + args[0]) }
+    
+   err = json.Unmarshal(bytes, &p)	
+   
+   if err != nil {	fmt.Printf("RETRIEVE_Patient:  patient record "+string(bytes)+": %s", err); return p, errors.New("RETRIEVE_Patient:  Patient record"+string(bytes))	}
+   
+   
+    return p, nil
 }
 
-/*
- Get the customer id by PAN number
-*/
-func GetCustomerID(stub *shim.ChaincodeStub, panId string) ([]string, error) {
-	var err error
+func (t *SimpleChaincode) save_changes(stub *shim.ChaincodeStub, p Patient) (bool, error) {
+	 
+	bytes, err := json.Marshal(p)
+	
+																if err != nil { fmt.Printf("SAVE_CHANGES: Error converting Patient record: %s", err); return false, errors.New("Error converting Patient record") }
 
-	// myLogger.Debugf("Get customer id for PAN : [%s]", panId)
-
-	var columns []shim.Column
-	col1 := shim.Column{Value: &shim.Column_String_{String_: panId}}
-	columns = append(columns, col1)
-
-	row, err := stub.GetRow("IDRelation", columns)
-	if err != nil {
-		// myLogger.Debugf("Failed retriving Identification details for PAN [%s]: [%s]", string(panId), err)
-		return nil, fmt.Errorf("Failed retriving Identification details  for PAN [%s]: [%s]", string(panId), err)
-	}
-
-	custIds := row.Columns[1].GetString_()
-	custIdArray := strings.Split(custIds, "|")
-	return custIdArray, nil
+	err = stub.PutState(p.Id, bytes)
+	
+																if err != nil { fmt.Printf("SAVE_CHANGES: Error storing Patient record: %s", err); return false, errors.New("Error storing Patient record") }
+	
+	return true, nil
 }
 
-/*
-	Update ID relation table
-*/
-func updateIDRelation(stub *shim.ChaincodeStub, identityNumber string, customerId string, functionType string) (string, error) {
-	var columns []shim.Column
-	col1 := shim.Column{Value: &shim.Column_String_{String_: identityNumber}}
-	columns = append(columns, col1)
 
-	idrow, err := stub.GetRow("IDRelation", columns)
-	if err != nil {
-		// myLogger.Debugf("Failed retriving Identification relation details for ID [%s]: [%s]", string(identityNumber), err)
-		return "", fmt.Errorf("Failed retriving Identification relation details  for ID [%s]: [%s]", string(identityNumber), err)
-	}
-
-	var isRowExists bool
-	isRowExists = (idrow.Columns != nil)
-
-	var ok bool
-	if isRowExists {
-		if functionType == "update" {
-			if strings.Contains(idrow.Columns[1].GetString_(), customerId) {
-				// myLogger.Debugf("Identification relation exists. Do nothing.")
-				return "", nil
-			}
-		}
-		customerId = idrow.Columns[1].GetString_() + "|" + customerId
-		ok, err = stub.ReplaceRow("IDRelation", shim.Row{
-			Columns: []*shim.Column{
-				&shim.Column{Value: &shim.Column_String_{String_: identityNumber}},
-				&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			},
-		})
-	} else {
-		ok, err = stub.InsertRow("IDRelation", shim.Row{
-			Columns: []*shim.Column{
-				&shim.Column{Value: &shim.Column_String_{String_: identityNumber}},
-				&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			},
-		})
-	}
-	if !ok && err == nil {
-		return "", errors.New("Error in updating Identification relation record.")
-	}
-	return "", nil
-}
-
-/*
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-																				kyc
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-*/
-
-/*
-	Create KYC table
-*/
-func CreateKycTable(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Creating KYC Table...")
-	if len(args) != 0 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 0")
-	}
-
-	err := stub.CreateTable("KYC", []*shim.ColumnDefinition{
-		&shim.ColumnDefinition{Name: "cummy", Type: shim.ColumnDefinition_STRING, Key: true},
-		&shim.ColumnDefinition{Name: "customerId", Type: shim.ColumnDefinition_STRING, Key: true},
-		&shim.ColumnDefinition{Name: "kycStatus", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "lastUpdated", Type: shim.ColumnDefinition_STRING, Key: false},
-		&shim.ColumnDefinition{Name: "source", Type: shim.ColumnDefinition_STRING, Key: false},
-	})
-	if err != nil {
-		return nil, errors.New("Failed creating KYC table.")
-	}
-	// myLogger.Debug("KYC table initialization done Successfully... !!! ")
-	return nil, nil
-}
-
-/*
-	Add KYC record
-*/
-func AddKYC(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Adding KYC record ...")
-
-	if len(args) != 4 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 4")
-	}
-
-	customerId := args[0]
-	kycStatus := args[1]
-	lastUpdated := args[2]
-	source := args[3]
-
-	ok, err := stub.InsertRow("KYC", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: dummyValue}},
-			&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			&shim.Column{Value: &shim.Column_String_{String_: kycStatus}},
-			&shim.Column{Value: &shim.Column_String_{String_: lastUpdated}},
-			&shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
-
-	if !ok && err == nil {
-		return nil, errors.New("Error in adding KYC record.")
-	}
-	// myLogger.Debug("Congratulations !!! Successfully added")
-	return nil, err
-}
-
-/*
-	Update KYC record
-*/
-func UpdateKYC(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-	// myLogger.Debug("Updating KYC record ...")
-
-	if len(args) != 4 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 4")
-	}
-
-	customerId := args[0]
-	kycStatus := args[1]
-	lastUpdated := args[2]
-	source := args[3]
-
-	ok, err := stub.ReplaceRow("KYC", shim.Row{
-		Columns: []*shim.Column{
-			&shim.Column{Value: &shim.Column_String_{String_: dummyValue}},
-			&shim.Column{Value: &shim.Column_String_{String_: customerId}},
-			&shim.Column{Value: &shim.Column_String_{String_: kycStatus}},
-			&shim.Column{Value: &shim.Column_String_{String_: lastUpdated}},
-			&shim.Column{Value: &shim.Column_String_{String_: source}},
-		},
-	})
-
-	if !ok && err == nil {
-		return nil, errors.New("Error in updating KYC record.")
-	}
-	// myLogger.Debug("Congratulations !!! Successfully updated")
-	return nil, err
-}
-
-/*
- Get KYC record
-*/
-func GetKYC(stub *shim.ChaincodeStub, customerId string) (string, error) {
-	var err error
-	// myLogger.Debugf("Get identification record for customer : [%s]", string(customerId))
-	var columns []shim.Column
-	col1 := shim.Column{Value: &shim.Column_String_{String_: dummyValue}}
-	col2 := shim.Column{Value: &shim.Column_String_{String_: customerId}}
-	columns = append(columns, col1)
-	columns = append(columns, col2)
-	row, err := stub.GetRow("KYC", columns)
-	if err != nil {
-		return "", fmt.Errorf("Failed retriving KYC details [%s]: [%s]", string(customerId), err)
-	}
-	jsonResp := "{\"customerId\":\"" + row.Columns[1].GetString_() + "\"" +
-		",\"kycStatus\":\"" + row.Columns[2].GetString_() + "\"" +
-		",\"lastUpdated\":\"" + row.Columns[3].GetString_() + "\"" +
-		",\"source\":\"" + row.Columns[4].GetString_() + "\"}"
-
-	return jsonResp, nil
-}
-
-func (t *ServicesChaincode) GetKYCStats(stub *shim.ChaincodeStub) ([]byte, error) {
-	var err error
-
-	var columns []shim.Column
-	col1 := shim.Column{Value: &shim.Column_String_{String_: dummyValue}}
-	columns = append(columns, col1)
-	rows, err := GetAllRows(stub, "KYC", columns)
-	if err != nil {
-		return nil,fmt.Errorf("Failed retriving KYC details [%s]", err)
-	}
-
-	var kycBuffer bytes.Buffer
-	// var compliantBuffer bytes.Buffer
-	// var noncompliantBuffer bytes.Buffer
-	var compliantCustomersCount int
-	var noncompliantCustomersCount int
-	var totalCustomers int
-
-	for i := range rows {
-		row := rows[i]
-		totalCustomers++;
-		if row.Columns[2].GetString_() == "compliant"{
-			compliantCustomersCount++
-			// if compliantBuffer.String() != "" {
-			// 	compliantBuffer.WriteString(",")
-			// }
-			// compliantBuffer.WriteString("{\"customerId\":\"" + row.Columns[1].GetString_() + "\"" +
-			// 	",\"kycStatus\":\"" + row.Columns[2].GetString_() + "\"" +
-			// 	",\"lastUpdated\":\"" + row.Columns[3].GetString_() + "\"" +
-			// 	",\"source\":\"" + row.Columns[4].GetString_() + "\"}")
-		}else if row.Columns[2].GetString_() == "non-compliant" {
-			noncompliantCustomersCount++
-		// 	if noncompliantBuffer.String() != "" {
-		// 		noncompliantBuffer.WriteString(",")
-		// 	}
-		// 	noncompliantBuffer.WriteString("{\"customerId\":\"" + row.Columns[1].GetString_() + "\"" +
-		// 		",\"kycStatus\":\"" + row.Columns[2].GetString_() + "\"" +
-		// 		",\"lastUpdated\":\"" + row.Columns[3].GetString_() + "\"" +
-		// 		",\"source\":\"" + row.Columns[4].GetString_() + "\"}")
-		}
-	}
-	kycBuffer.WriteString("{" +
-			"\"compliant\" : \"" + strconv.Itoa(compliantCustomersCount)+"\"," +
-			"\"noncompliant\" : \"" + strconv.Itoa(noncompliantCustomersCount) +"\"," +
-			"\"total\" : \"" + strconv.Itoa(totalCustomers) + "\"" +
-			"}")
-
-	bytes, err := json.Marshal(kycBuffer.String())
-	if err != nil {
-		return nil, errors.New("Error converting kyc stats")
-	}
-	return bytes, nil
-}
 
 func main() {
-	err := shim.Start(new(ServicesChaincode))
-	if err != nil {
-		fmt.Printf("Error starting ServicesChaincode: %s", err)
-	}
+    err := shim.Start(new(SimpleChaincode))
+    if err != nil {
+        fmt.Printf("Error starting Simple chaincode: %s", err)
+    }
 }
