@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"encoding/json"
-	
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
-	
+
 )
 
 
@@ -15,12 +15,13 @@ type  SimpleChaincode struct {
 
 
 type Patient struct {
-	
-	Id               string 
-	Name            string 
+	Id               string
+	Name            	string
 	Address           string
-	Phone			string
-	Email			string 
+	Phone							string
+	Email						string
+	HeartRate		 string
+	BloodPressure		 string
 }
 
 
@@ -81,13 +82,13 @@ func (t *SimpleChaincode) Query(stub *shim.ChaincodeStub, function string, args 
         return t.read(stub, args)
     }else if function == "retrieve_patient" {
     	p,err := t.retrieve_patient(stub,args)
-    	
+
     	if err != nil { fmt.Printf("QUERY: Error retrieving Id: %s", err); return nil, errors.New("QUERY: Error retrieving id "+err.Error()) }
-    	
+
     	fmt.Println("The Patient found"+p.Name)
     	 bytes, err := json.Marshal(p)
     	return bytes, err
-    	
+
     }
     fmt.Println("query did not find func: " + function)
 
@@ -114,30 +115,31 @@ func (t *SimpleChaincode) read(stub *shim.ChaincodeStub, args []string) ([]byte,
 }
 
 func (t *SimpleChaincode) create_patient(stub *shim.ChaincodeStub, args []string) ([]byte, error) {
-   
+
    var err error
-   
+
    var p Patient
-   
-   id :=  "\"Id\":\""+args[0]+"\", "
-   name := "\"Name\":\""+args[1]+"\", "
-   address := "\"Address\":\""+args[2]+"\", "
-   phone := "\"Phone\":\""+args[3]+"\", "
-   email :=  "\"Email\":\""+args[4]+"\""
-   
-   json_string :="{"+id+name+address+phone+email+"}"
-   
-   err = json.Unmarshal([]byte(json_string), &p)
-   
+
+  //  id :=  "\"Id\":\""+args[0]+"\", "
+  //  name := "\"Name\":\""+args[1]+"\", "
+  //  address := "\"Address\":\""+args[2]+"\", "
+  //  phone := "\"Phone\":\""+args[3]+"\", "
+  //  email :=  "\"Email\":\""+args[4]+"\""
+
+  //  json_string :="{"+id+name+address+phone+email+"}"
+
+
+   err = json.Unmarshal([]byte(args[0]), &p)
+
    if err != nil { return nil, errors.New("Invalid JSON object") }
-   
-   
+
+
 	 _, err  = t.save_changes(stub, p)
-	  
+
    if err != nil {
         return nil, err
     }
-   
+
     return nil, nil
 }
 
@@ -146,29 +148,29 @@ func (t *SimpleChaincode) create_patient(stub *shim.ChaincodeStub, args []string
 
 func (t *SimpleChaincode) retrieve_patient(stub *shim.ChaincodeStub, args []string) (Patient, error) {
    var p Patient
-   
-   bytes, err := stub.GetState(args[0])	
-   
+
+   bytes, err := stub.GetState(args[0])
+
     if err != nil {	fmt.Printf("RETRIEVE_Patient: Failed to invoke patient_code: %s", err); return p, errors.New("RETRIEVE_Patient: Error retrieving Patient with id = " + args[0]) }
-    
-   err = json.Unmarshal(bytes, &p)	
-   
+
+   err = json.Unmarshal(bytes, &p)
+
    if err != nil {	fmt.Printf("RETRIEVE_Patient:  patient record "+string(bytes)+": %s", err); return p, errors.New("RETRIEVE_Patient:  Patient record"+string(bytes))	}
-   
-   
+
+
     return p, nil
 }
 
 func (t *SimpleChaincode) save_changes(stub *shim.ChaincodeStub, p Patient) (bool, error) {
-	 
+
 	bytes, err := json.Marshal(p)
-	
+
 																if err != nil { fmt.Printf("SAVE_CHANGES: Error converting Patient record: %s", err); return false, errors.New("Error converting Patient record") }
 
 	err = stub.PutState(p.Id, bytes)
-	
+
 																if err != nil { fmt.Printf("SAVE_CHANGES: Error storing Patient record: %s", err); return false, errors.New("Error storing Patient record") }
-	
+
 	return true, nil
 }
 
