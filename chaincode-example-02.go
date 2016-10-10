@@ -45,14 +45,14 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	Aval, err = strconv.Atoi(args[1])
 	if err != nil {
 		var errStr string
-		errStr = Expecting integer value for asset holding" + args[1]
+		errStr = "Expecting integer value for asset holding" + args[1]
 		return nil, errors.New(errStr)
 	}
 	B = args[2]
 	Bval, err = strconv.Atoi(args[3])
 	if err != nil {
 		var errStr string
-		errStr = Expecting integer value for asset holding" + args[1]
+		errStr = "Expecting integer value for asset holding" + args[1]
 		return nil, errors.New(errStr)
 	}
 	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
